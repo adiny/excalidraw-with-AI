@@ -1,0 +1,20 @@
+#chatbot {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 300px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.user-message {
+  margin-bottom: 5px;
+  color: #333;
+}
+
+.bot-message {
+  margin-bottom: 5px;
+  color: #555;
+}

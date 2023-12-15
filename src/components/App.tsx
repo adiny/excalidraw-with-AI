@@ -403,6 +403,7 @@ import {
 } from "../data/codesandboxEmbed";
 import { htmlToReactComponent } from "../data/htmlToReact";
 import { ElementCanvasButtonWithText } from "./MagicButtonWithText";
+import Chatbot from "./chatbot/chatbot";
 
 const AppContext = React.createContext<AppClassProperties>(null!);
 const AppPropsContext = React.createContext<AppProps>(null!);
@@ -1185,6 +1186,26 @@ class App extends React.Component<AppProps, AppState> {
     _cache: new Map(),
   };
 
+  private toggleChatbot = () => {
+    const chatbotElement = document.getElementById("chatbot");
+
+    if (chatbotElement) {
+      if (
+        chatbotElement.style.display === "none" ||
+        chatbotElement.style.display === ""
+      ) {
+        chatbotElement.style.display = "block";
+      } else {
+        chatbotElement.style.display = "none";
+      }
+    }
+  };
+
+  private handleChatbotSubmit = (message: string) => {
+    // 부모 컴포넌트에서 실행하고 싶은 로직을 작성
+    console.log("부모 컴포넌트에서 실행:", message);
+  };
+
   private renderFrameNames = () => {
     if (!this.state.frameRendering.enabled || !this.state.frameRendering.name) {
       return null;
@@ -1561,6 +1582,29 @@ class App extends React.Component<AppProps, AppState> {
                                     }
                                   }
                                 }}
+                              />
+                              {firstSelectedElement.customData.generationData
+                                .react === true && (
+                                <ElementCanvasButtonWithText
+                                  title={t("labels.copySource")}
+                                  text="Chatr"
+                                  icon={copyIcon}
+                                  checked={false}
+                                  onChange={() => this.toggleChatbot()}
+                                />
+                              )}
+                              {firstSelectedElement.customData.generationData
+                                .react === false && (
+                                <ElementCanvasButtonWithText
+                                  title={t("labels.copySource")}
+                                  text="Chath"
+                                  icon={copyIcon}
+                                  checked={false}
+                                  onChange={() => this.toggleChatbot()}
+                                />
+                              )}
+                              <Chatbot
+                                onChatbotSubmit={this.handleChatbotSubmit}
                               />
                             </ElementCanvasButtons>
                           )}
