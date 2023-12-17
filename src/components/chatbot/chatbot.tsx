@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "./chatbot.scss";
 
 interface Message {
@@ -14,10 +14,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ onChatbotSubmit }) => {
   const [input, setInput] = useState<string>("");
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const addBotMessage = (text: string) => {
-    setMessages((prevMessages) => [...prevMessages, { text, isUser: false }]);
-  };
-
   const addUserMessage = (text: string) => {
     setMessages((prevMessages) => [...prevMessages, { text, isUser: true }]);
   };
@@ -27,32 +23,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ onChatbotSubmit }) => {
 
     if (input.trim() === "") return;
 
-    // 유저가 보낸 메시지 추가
     addUserMessage(input);
+    onChatbotSubmit(input);
 
-    try {
-      onChatbotSubmit(input);
-      const response = await fetch("/api/chatbot", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ message: input }),
-      });
-
-      if (!response.ok) {
-        throw new Error("챗봇 API 호출 실패");
-      }
-
-      const data = await response.json();
-      const botResponse = data.message;
-      addBotMessage(botResponse);
-    } catch (error) {
-      console.error("챗봇 API 호출 중 오류 발생:", error);
-      addBotMessage("죄송합니다. 현재 서비스를 이용할 수 없습니다.");
-    }
-
-    // 입력 창 초기화
     setInput("");
   };
 
@@ -67,6 +40,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ onChatbotSubmit }) => {
             {message.text}
           </div>
         ))}
+        <img id="image" src="/artificial-intelligence.png" alt="Chatbot" />
       </div>
       <form onSubmit={handleSubmit}>
         <input
