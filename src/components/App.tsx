@@ -404,6 +404,8 @@ import {
 import { htmlToReactComponent } from "../data/htmlToReact";
 import { ElementCanvasButtonWithText } from "./MagicButtonWithText";
 import Chatbot from "./chatbot/chatbot";
+import { chatToHtmlComponent } from "../data/chatToHtml";
+import { chatToReactComponent } from "../data/chatToReact";
 
 const AppContext = React.createContext<AppClassProperties>(null!);
 const AppPropsContext = React.createContext<AppProps>(null!);
@@ -1201,11 +1203,6 @@ class App extends React.Component<AppProps, AppState> {
     }
   };
 
-  private handleChatbotSubmit = (message: string) => {
-    // 부모 컴포넌트에서 실행하고 싶은 로직을 작성
-    console.log("부모 컴포넌트에서 실행:", message);
-  };
-
   private renderFrameNames = () => {
     if (!this.state.frameRendering.enabled || !this.state.frameRendering.name) {
       return null;
@@ -1603,9 +1600,28 @@ class App extends React.Component<AppProps, AppState> {
                                   onChange={() => this.toggleChatbot()}
                                 />
                               )}
-                              <Chatbot
-                                onChatbotSubmit={this.handleChatbotSubmit}
-                              />
+                              {firstSelectedElement.customData.generationData
+                                .react === true && (
+                                <Chatbot
+                                  onChatbotSubmit={(message) =>
+                                    this.reactChatbotSubmit(
+                                      message,
+                                      firstSelectedElement,
+                                    )
+                                  }
+                                />
+                              )}
+                              {firstSelectedElement.customData.generationData
+                                .react === false && (
+                                <Chatbot
+                                  onChatbotSubmit={(message) =>
+                                    this.handleChatbotSubmit(
+                                      message,
+                                      firstSelectedElement,
+                                    )
+                                  }
+                                />
+                              )}
                             </ElementCanvasButtons>
                           )}
                         {this.state.toast !== null && (
@@ -1895,7 +1911,7 @@ class App extends React.Component<AppProps, AppState> {
 
     this.updateMagicGeneration({
       frameElement,
-      data: { status: "done", html, react: false },
+      data: { status: "done", html, react: false, codefile: html },
     });
   }
 
@@ -2022,7 +2038,7 @@ class App extends React.Component<AppProps, AppState> {
     // iframe 요소에 샌드박스 URL을 설정하여 페이지에 임베드합니다.
     this.updateMagicGeneration({
       frameElement,
-      data: { status: "done", html: iframeHtml, react: false },
+      data: { status: "done", html: iframeHtml, react: false, codefile: html },
     });
 
     // 기존 방식
@@ -2182,6 +2198,8 @@ class App extends React.Component<AppProps, AppState> {
       reactComponent.choices[0].message.content,
     );
 
+    const CodesandboxHtml = JSON.stringify(CodesandboxFiles);
+
     // HTML을 CodeSandbox에 업로드하고, iframe URL을 받아옵니다.
     const sandboxIframeUrl = await uploadReactCodeToCodeSandbox(
       CodesandboxFiles,
@@ -2197,7 +2215,12 @@ class App extends React.Component<AppProps, AppState> {
     // iframe 요소에 샌드박스 URL을 설정하여 페이지에 임베드합니다.
     this.updateMagicGeneration({
       frameElement,
-      data: { status: "done", html: iframeHtml, react: true },
+      data: {
+        status: "done",
+        html: iframeHtml,
+        react: true,
+        codefile: CodesandboxHtml,
+      },
     });
   }
 
@@ -2289,6 +2312,8 @@ class App extends React.Component<AppProps, AppState> {
         reactComponent.choices[0].message.content,
       );
 
+      const CodesandboxReact = JSON.stringify(CodesandboxFiles);
+
       console.log("codesandbox files: ", CodesandboxFiles);
 
       // HTML을 CodeSandbox에 업로드하고, iframe URL을 받아옵니다.
@@ -2306,7 +2331,215 @@ class App extends React.Component<AppProps, AppState> {
       // iframe 요소에 샌드박스 URL을 설정하여 페이지에 임베드합니다.
       this.updateMagicGeneration({
         frameElement,
-        data: { status: "done", html: iframeHtml, react: true },
+        data: {
+          status: "done",
+          html: iframeHtml,
+          react: true,
+          codefile: CodesandboxReact,
+        },
+      });
+    }
+  }
+
+  private async handleChatbotSubmit(
+    message: string,
+    element: ExcalidrawIframeElement,
+  ) {
+    if (!this.OPENAI_KEY) {
+      this.setState({
+        openDialog: {
+          name: "settings",
+          tab: "diagram-to-code",
+          source: "generation",
+        },
+      });
+      trackEvent("ai", "generate (missing key)", "d2c");
+      return;
+    }
+
+    if (element.customData?.generationData?.status === "done") {
+      const html = element.customData.generationData.codefile;
+      console.log(html);
+
+      const frameElement = this.insertIframeElement({
+        sceneX: element.x + element.width + 30,
+        sceneY: element.y,
+        width: element.width,
+        height: element.height,
+      });
+
+      if (!frameElement) {
+        return;
+      }
+
+      this.updateMagicGeneration({
+        frameElement,
+        data: { status: "pending" },
+      });
+
+      this.setState({
+        selectedElementIds: { [frameElement.id]: true },
+      });
+
+      trackEvent("ai", "react component generate (start)", "d2c");
+
+      const htmlComponent = await chatToHtmlComponent({
+        apiKey: this.OPENAI_KEY,
+        text: html,
+        message: message,
+      });
+      console.log(htmlComponent);
+
+      if (!htmlComponent.ok) {
+        trackEvent("ai", "react component generate (failed)", "d2c");
+        console.error(htmlComponent.error);
+        this.updateMagicGeneration({
+          frameElement,
+          data: {
+            status: "error",
+            code: "ERR_OAI",
+            message:
+              htmlComponent.error?.message || "Unknown error during generation",
+          },
+        });
+        return;
+      }
+
+      if (htmlComponent.choices[0].message.content == null) {
+        this.updateMagicGeneration({
+          frameElement,
+          data: {
+            status: "error",
+            code: "ERR_OAI",
+            message: "Nothing genereated :(",
+          },
+        });
+        return;
+      }
+
+      const messages = htmlComponent.choices[0].message.content;
+
+      const chatHtml = messages.slice(
+        messages.indexOf("<!DOCTYPE html>"),
+        messages.indexOf("</html>") + "</html>".length,
+      );
+
+      this.updateMagicGeneration({
+        frameElement,
+        data: {
+          status: "done",
+          html: chatHtml,
+          react: false,
+          codefile: chatHtml,
+        },
+      });
+    }
+  }
+
+  private async reactChatbotSubmit(
+    message: string,
+    element: ExcalidrawIframeElement,
+  ) {
+    if (!this.OPENAI_KEY) {
+      this.setState({
+        openDialog: {
+          name: "settings",
+          tab: "diagram-to-code",
+          source: "generation",
+        },
+      });
+      trackEvent("ai", "generate (missing key)", "d2c");
+      return;
+    }
+
+    if (element.customData?.generationData?.status === "done") {
+      const html = element.customData.generationData.codefile;
+      console.log(html);
+
+      const frameElement = this.insertIframeElement({
+        sceneX: element.x + element.width + 30,
+        sceneY: element.y,
+        width: element.width,
+        height: element.height,
+      });
+
+      if (!frameElement) {
+        return;
+      }
+
+      this.updateMagicGeneration({
+        frameElement,
+        data: { status: "pending" },
+      });
+
+      this.setState({
+        selectedElementIds: { [frameElement.id]: true },
+      });
+
+      trackEvent("ai", "react component generate (start)", "d2c");
+
+      const reactComponent = await chatToReactComponent({
+        apiKey: this.OPENAI_KEY,
+        text: html,
+        message: message,
+      });
+      console.log("react component: ", reactComponent);
+
+      if (!reactComponent.ok) {
+        trackEvent("ai", "react component generate (failed)", "d2c");
+        console.error(reactComponent.error);
+        this.updateMagicGeneration({
+          frameElement,
+          data: {
+            status: "error",
+            code: "ERR_OAI",
+            message:
+              reactComponent.error?.message ||
+              "Unknown error during generation",
+          },
+        });
+        return;
+      }
+
+      if (reactComponent.choices[0].message.content == null) {
+        this.updateMagicGeneration({
+          frameElement,
+          data: {
+            status: "error",
+            code: "ERR_OAI",
+            message: "Nothing genereated :(",
+          },
+        });
+        return;
+      }
+
+      const CodesandboxFiles = JSON.parse(
+        reactComponent.choices[0].message.content,
+      );
+
+      const chatbotReact = JSON.stringify(CodesandboxFiles);
+
+      console.log("codesandbox files: ", CodesandboxFiles);
+
+      const sandboxIframeUrl = await uploadReactCodeToCodeSandbox(
+        CodesandboxFiles,
+      );
+
+      const iframeHtml = `<iframe
+                            src=${sandboxIframeUrl}
+                            style="width:100%; height:100vh; border:0; border-radius: 4px; overflow:hidden;"
+                            allow="accelerometer; ambient-light-sensor; camera; encrypted-media; geolocation; gyroscope; hid; microphone; midi; payment; usb; vr; xr-spatial-tracking"
+                            sandbox="allow-forms allow-modals allow-popups allow-presentation allow-same-origin allow-scripts"
+                          ></iframe>`;
+
+      this.updateMagicGeneration({
+        frameElement,
+        data: {
+          status: "done",
+          html: iframeHtml,
+          react: true,
+          codefile: chatbotReact,
+        },
       });
     }
   }
