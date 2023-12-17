@@ -1584,7 +1584,7 @@ class App extends React.Component<AppProps, AppState> {
                                 .react === true && (
                                 <ElementCanvasButtonWithText
                                   title={t("labels.copySource")}
-                                  text="Chatr"
+                                  text="AI chat"
                                   icon={copyIcon}
                                   checked={false}
                                   onChange={() => this.toggleChatbot()}
@@ -1594,7 +1594,7 @@ class App extends React.Component<AppProps, AppState> {
                                 .react === false && (
                                 <ElementCanvasButtonWithText
                                   title={t("labels.copySource")}
-                                  text="Chath"
+                                  text="AI chat"
                                   icon={copyIcon}
                                   checked={false}
                                   onChange={() => this.toggleChatbot()}
