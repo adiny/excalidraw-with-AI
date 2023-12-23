@@ -278,7 +278,15 @@ export const TTDDialogBase = withInternalFallback(
                 Currently we use Mermaid as a middle step, so you'll get best
                 results if you describe a diagram, workflow, flow chart, and
                 similar.
+                <p>
+                  현재 Excalidraw-with-AI에서는 이 기능을 준비중입니다.{" "}
+                  <a href="https://excalidraw.com/" target="_blank">
+                    excalidraw.com
+                  </a>
+                  에서 이용하실 수 있습니다.
+                </p>
               </div>
+
               <TTDDialogPanels>
                 <TTDDialogPanel
                   label={t("labels.prompt")}
